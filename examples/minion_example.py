@@ -1,127 +1,87 @@
+#!/usr/bin/env python3
+"""
+示例脚本：使用minion作为LLM提供者与minion-mobile集成
+"""
+
 import asyncio
 import sys
 from pathlib import Path
 
-# 添加minion到Python路径
+# 添加minion到Python路径（如果没有通过pip安装）
 minion_path = Path('/Users/femtozheng/python-project/minion1')
 sys.path.append(str(minion_path))
 
-from minion.configs.config import config, LLMConfig
+# 导入minion_mobile
+from minion_mobile import mobile_use
+
+# 导入minion相关模块
+from minion.configs.config import config
 from minion.providers import create_llm_provider
 from minion.schema.message_types import Message
 
 
-async def chat_with_llm(messages, model_name="gpt-4o"):
-    """与LLM进行对话"""
-    # 获取对应模型配置
+async def minion_llm_function(messages, tools=None):
+    """使用minion调用LLM的函数"""
+    # 获取模型配置
+    model_name = "gpt-4o"  # 或其他你喜欢的模型
     llm_config = config.models.get(model_name)
+    
     if not llm_config:
-        print(f"模型 '{model_name}' 配置不存在，请检查config文件")
-        return None
+        print(f"错误：找不到模型 '{model_name}' 的配置")
+        return {
+            "role": "assistant",
+            "content": f"错误：找不到模型 '{model_name}' 的配置"
+        }
     
     # 创建LLM提供者
     llm = create_llm_provider(llm_config)
     
-    # 使用消息列表进行对话，并获取回复
-    try:
-        # 同步方式
-        # response = llm.generate_sync(messages)
-        
-        # 异步方式
-        response = await llm.generate(messages)
-        return response
-    except Exception as e:
-        print(f"与LLM通信时发生错误: {e}")
-        return None
-
-
-async def stream_chat_with_llm(messages, model_name="gpt-4o"):
-    """与LLM进行流式对话"""
-    # 获取对应模型配置
-    llm_config = config.models.get(model_name)
-    if not llm_config:
-        print(f"模型 '{model_name}' 配置不存在，请检查config文件")
-        return None
+    # 将消息转换为Minion Message格式
+    minion_messages = [
+        Message(role=msg["role"], content=msg["content"]) 
+        for msg in messages
+    ]
     
-    # 创建LLM提供者
-    llm = create_llm_provider(llm_config)
-    
-    # 使用消息列表进行流式对话
     try:
-        full_response = ""
-        async for chunk in llm.generate_stream(messages):
-            print(chunk, end="", flush=True)
-            full_response += chunk
-        print()  # 换行
-        return full_response
+        # 如果有工具，使用工具版本调用
+        if tools:
+            print(f"使用工具调用LLM，工具数量: {len(tools)}")
+            response = await llm.generate(minion_messages, tools=tools)
+        else:
+            print("不使用工具调用LLM")
+            response = await llm.generate(minion_messages)
+            
+        return {
+            "role": "assistant",
+            "content": response
+        }
     except Exception as e:
-        print(f"与LLM通信时发生错误: {e}")
-        return None
+        print(f"调用LLM时发生错误: {e}")
+        return {
+            "role": "assistant",
+            "content": f"调用LLM时发生错误: {e}"
+        }
 
 
 async def main():
-    # 支持的模型列表
-    available_models = [
-        "gpt-4o", 
-        "gpt-4o-mini", 
-        "gemini-2.0-flash-exp", 
-        "deepseek-r1", 
-        "phi-4", 
-        "llama3.2"
-    ]
+    # 设置任务
+    task = input("请输入移动设备自动化任务（如：打开计算器并按5）: ")
+    if not task:
+        task = "打开计算器应用，按数字5，然后按加号，然后按数字10，然后按等号"
+        print(f"使用默认任务: {task}")
     
-    # 默认使用第一个模型
-    model = available_models[0]
+    # 使用mobile_use与Minion
+    print("\n开始处理任务...")
+    result = await mobile_use(
+        task=task,
+        llm_function=minion_llm_function
+    )
     
-    # 提示用户选择模型
-    print("可用模型列表:")
-    for i, m in enumerate(available_models):
-        print(f"{i+1}. {m}")
-    
-    choice = input(f"请选择模型 (1-{len(available_models)})，默认 1: ")
-    if choice.isdigit() and 1 <= int(choice) <= len(available_models):
-        model = available_models[int(choice)-1]
-    
-    print(f"\n已选择模型: {model}")
-    
-    # 创建消息列表
-    messages = [
-        Message(role="system", content="你是一个有用的AI助手，请简洁、准确地回答问题。"),
-        Message(role="user", content="请用一句话介绍自己。")
-    ]
-    
-    # 是否使用流式输出
-    use_stream = input("是否使用流式输出? (y/n, 默认y): ").lower() != 'n'
-    
-    print("\n开始与LLM对话...")
-    
-    if use_stream:
-        response = await stream_chat_with_llm(messages, model)
+    print("\n任务结果:")
+    if isinstance(result, dict) and "content" in result:
+        print(result["content"])
     else:
-        response = await chat_with_llm(messages, model)
-        if response:
-            print(f"LLM回复: {response}")
-    
-    # 继续对话
-    while True:
-        user_input = input("\n请输入您的问题 (输入'exit'退出): ")
-        if user_input.lower() in ['exit', 'quit', '退出']:
-            break
-        
-        # 添加用户消息
-        messages.append(Message(role="user", content=user_input))
-        
-        # 获取LLM回复
-        if use_stream:
-            response = await stream_chat_with_llm(messages, model)
-        else:
-            response = await chat_with_llm(messages, model)
-            if response:
-                print(f"LLM回复: {response}")
-        
-        # 添加助手回复到消息历史
-        if response:
-            messages.append(Message(role="assistant", content=response))
+        print(result)
 
 
 if __name__ == "__main__":
