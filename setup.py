@@ -6,7 +6,7 @@ with open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8"
     long_description = f.read()
 
 setup(
-    name="minion-mobile",
+    name="manus_mobile",
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
@@ -21,11 +21,11 @@ setup(
     description="Python library for AI-driven mobile device automation",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/femtozheng/minion-mobile",
+    url="https://github.com/femtozheng/manusmobile",
     project_urls={
-        "Bug Tracker": "https://github.com/femtozheng/minion-mobile/issues",
-        "Documentation": "https://github.com/femtozheng/minion-mobile#readme",
-        "Source Code": "https://github.com/femtozheng/minion-mobile",
+        "Bug Tracker": "https://github.com/femtozheng/manusmobile/issues",
+        "Documentation": "https://github.com/femtozheng/manusmobile#readme",
+        "Source Code": "https://github.com/femtozheng/manusmobile",
     },
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -33,13 +33,12 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Software Development :: Testing",
         "Intended Audience :: Developers",
     ],
-    keywords="mobile, android, automation, adb, testing, ai, minion",
+    keywords="mobile, android, automation, adb, testing, ai, manus",
     python_requires=">=3.8",
     include_package_data=True,
 ) 

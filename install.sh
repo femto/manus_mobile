@@ -1,30 +1,17 @@
 #!/bin/bash
 
-# Exit on error
-set -e
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
-
-# Activate virtual environment
+# 创建虚拟环境
+python -m venv venv
 source venv/bin/activate
 
-# Install requirements
-echo "Installing requirements..."
-pip install -r requirements.txt
+# 安装需要的包
+pip install -e .
 
-# Add current directory to PYTHONPATH to make the package importable
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+# 安装开发依赖
+pip install pytest black
 
-echo ""
-echo "Installation complete!"
-echo ""
-echo "To use the mobile_use package, activate the virtual environment with:"
-echo "    source venv/bin/activate"
-echo ""
-echo "Then you can run the example with:"
-echo "    python examples/basic_usage.py"
-echo "" 
+echo "环境已设置。请使用 'source venv/bin/activate' 激活虚拟环境。"
+echo "之后可以运行示例："
+echo "  - python examples/basic_usage.py"
+echo "  - python examples/adb_example.py"
+echo "  - python examples/minion_tool_example.py" 
