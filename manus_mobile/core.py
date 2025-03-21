@@ -91,7 +91,7 @@ class LLMFunctionAdapter:
             # 使用create_llm_provider从llm_config中获取provider
             provider_name = ""
             if hasattr(self.llm, 'provider_name'):
-                provider_name = self.llm.provider_name.lower()
+                provider_name = self.llm.config.api_type
             
             # 确保所有工具都有type属性，默认为"function"
             formatted_tools = []
@@ -103,22 +103,29 @@ class LLMFunctionAdapter:
                     formatted_tool["type"] = "function"
                 
                 # 特殊处理OpenAI格式
-                if provider_name in ["openai", "anthropic", "claude"]:
+                if provider_name in ["openai","azure"]:
                     # 如果有function字段但没有正确嵌套，重新格式化
                     if "function" in formatted_tool:
                         function_data = formatted_tool["function"]
                     else:
                         # 从tool中提取function相关字段
                         function_data = {}
-                        for key in ["name", "description", "parameters"]:
+                        for key in ["name", "description", "parameters", "input_schema"]:
                             if key in formatted_tool:
                                 function_data[key] = formatted_tool[key]
-                    
-                    # 创建符合OpenAI格式的工具
+                                # 创建符合OpenAI格式的工具
                     formatted_tools.append({
                         "type": "function",
                         "function": function_data
                     })
+                elif provider_name in ["anthropic", "claude"]:
+
+                    function_data = {}
+                    for key in ["name", "description", "parameters", "input_schema"]:
+                        if key in formatted_tool:
+                            function_data[key] = formatted_tool[key]
+
+                    formatted_tools.append(function_data) #directly top level
                 else:
                     # 对其他provider保持原始格式
                     formatted_tools.append(formatted_tool)
@@ -190,7 +197,32 @@ class LLMFunctionAdapter:
                     return {"role": "assistant", "content": response.content}
                 elif isinstance(response, dict) and "content" in response:
                     return {"role": "assistant", "content": response["content"]}
+                elif isinstance(response, dict) and "content" in response and response["content"]:
+                    return {"role": "assistant", "content": response["content"]}
+                elif isinstance(response, list):
+                    return response #assume response is already well defined list
                 else:
+                    # Handle potential tool calls in the response
+                    if isinstance(response, dict):
+                        # Check for standard OpenAI-style tool_calls as a list
+                        if "tool_calls" in response:
+                            return response
+                        # Check if there's a list of tool calls at the top level
+                        elif "function_call" in response or "function_calls" in response:
+                            return response
+                    # Handle object with tool_calls attribute
+                    elif hasattr(response, "tool_calls"):
+                        # Check if tool_calls is a list or a single item
+                        tool_calls = response.tool_calls
+                        if isinstance(tool_calls, list):
+                            return {"role": "assistant", "tool_calls": tool_calls}
+                        else:
+                            return {"role": "assistant", "tool_calls": [tool_calls]}
+                    # Handle object with function_call attribute (single call case)
+                    elif hasattr(response, "function_call"):
+                        return {"role": "assistant", "tool_calls": [{"type": "function", "function": response.function_call}]}
+                    
+                    # Last resort, convert to string
                     return {"role": "assistant", "content": str(response)}
             except Exception as e:
                 print(f"LLM generation error: {e}")
@@ -272,11 +304,10 @@ async def mobile_use(
             response = await llm_function(messages, tools=tools)
             
             # 检查响应是否为None或内容为None
-            if response is None or response.get("content") == "None":
+            if response is None:
                 return {
                     "role": "assistant",
-                    "content": "I'll help you automate that task on your Android device. " +
-                              "First, I'll open the calculator app, then I'll press the number 5 button."
+                    "content": "None"
                 }
             
             return response
